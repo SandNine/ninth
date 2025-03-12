@@ -1,0 +1,221 @@
+// Função modificada para posicionar o popup perto do início do texto selecionado
+function checkForSelectionAndShowPopup() {
+  // Limpar qualquer timeout existente
+  if (selectionTimeout) {
+    clearTimeout(selectionTimeout);
+  }
+  
+  const selection = window.getSelection();
+  if (selection.toString().trim().length > 0) {
+    // Há texto selecionado, iniciar contador antes de mostrar o popup
+    selectionTimeout = setTimeout(() => {
+      // Obter o retângulo da seleção, mas usar o ponto inicial para posicionamento
+      const range = selection.getRangeAt(0);
+      const rects = range.getClientRects();
+      
+      // Usar o primeiro retângulo (início da seleção) para posicionamento
+      const firstRect = rects[0];
+      if (!firstRect) return;
+      
+      formatPopup.style.display = 'block';
+      
+      // Posicionar o popup acima do início da seleção
+      let popupLeft = firstRect.left;
+      let popupTop = firstRect.top - formatPopup.offsetHeight - 10;
+      
+      // Verificar limites horizontais
+      if (popupLeft < 10) {
+        popupLeft = 10; // Margem esquerda
+      } else if (popupLeft + formatPopup.offsetWidth > window.innerWidth - 10) {
+        popupLeft = window.innerWidth - formatPopup.offsetWidth - 10; // Margem direita
+      }
+      
+      // Verificar limites verticais - se não couber acima, posicionar abaixo
+      if (popupTop < 10) {
+        popupTop = firstRect.bottom + 10;
+        
+        // Se também não couber abaixo, tentar à direita
+        if (popupTop + formatPopup.offsetHeight > window.innerHeight - 10) {
+          popupLeft = firstRect.right + 10;
+          popupTop = firstRect.top;
+          
+          // Se não couber à direita, tentar à esquerda
+          if (popupLeft + formatPopup.offsetWidth > window.innerWidth - 10) {
+            popupLeft = Math.max(10, firstRect.left - formatPopup.offsetWidth - 10);
+          }
+        }
+      }
+      
+      // Aplicar posição final - fixar no topo da viewport se estiver fora da tela
+      if (popupTop < 0) {
+        popupTop = 10;
+      }
+      
+      formatPopup.style.left = `${popupLeft}px`;
+      formatPopup.style.top = `${popupTop}px`;
+      
+      // Verificar ID atual se o texto selecionado já tem um ID
+      checkSelectedTextForId();
+      
+      // Atualizar estado dos botões de formatação
+      updateFormatButtonsState();
+    }, 350); // 350ms de espera
+  } else {
+    // Não há seleção, ocultar popup somente se não estiver usando o campo de ID
+    if (!formatPopup.contains(document.activeElement)) {
+      formatPopup.style.display = 'none';
+    }
+  }
+}
+
+// Função modificada para manter a seleção após aplicar ID
+function applyIdToSelection(id) {
+  const selection = window.getSelection();
+  if (selection.rangeCount > 0 && selection.toString().trim().length > 0) {
+    const range = selection.getRangeAt(0);
+    
+    try {
+      // Salvar referências para recriar a seleção depois
+      const selectedText = selection.toString();
+      
+      // Criar um elemento span com o ID
+      const span = document.createElement('span');
+      span.setAttribute('data-id', id);
+      
+      // Tentar envolver o conteúdo da seleção com o span
+      range.surroundContents(span);
+      
+      // Atualizar o conteúdo da aba
+      const editor = document.querySelector(`.editor[data-id="${activeTabId}"]`);
+      if (editor) {
+        const tab = tabs.find(t => t.id == activeTabId);
+        if (tab) {
+          tab.content = editor.innerHTML;
+        }
+      }
+      
+      // Reselecionar o mesmo conteúdo
+      selection.removeAllRanges();
+      const newRange = document.createRange();
+      newRange.selectNodeContents(span);
+      selection.addRange(newRange);
+      
+      // Atualizar opacidade baseada nas regras de ID
+      updateTextOpacity();
+      
+      // Manter o popup visível
+      const rects = span.getClientRects();
+      if (rects.length > 0) {
+        showFormatPopup(rects[0]);
+      }
+    } catch (e) {
+      // Para seleções que cruzam limites de nós, precisamos de uma abordagem diferente
+      console.error("Erro ao aplicar ID:", e);
+      
+      // Abordagem alternativa: criar um novo range que abrange toda a seleção,
+      // extrair seu conteúdo, envolvê-lo em um span e reinseri-lo
+      try {
+        // Extrair conteúdo HTML da seleção
+        const fragment = range.extractContents();
+        
+        // Criar um span com ID e inserir o conteúdo
+        const span = document.createElement('span');
+        span.setAttribute('data-id', id);
+        span.appendChild(fragment);
+        
+        // Inserir de volta no documento
+        range.insertNode(span);
+        
+        // Atualizar o conteúdo da aba
+        const editor = document.querySelector(`.editor[data-id="${activeTabId}"]`);
+        if (editor) {
+          const tab = tabs.find(t => t.id == activeTabId);
+          if (tab) {
+            tab.content = editor.innerHTML;
+          }
+        }
+        
+        // Reselecionar o conteúdo
+        selection.removeAllRanges();
+        const newRange = document.createRange();
+        newRange.selectNodeContents(span);
+        selection.addRange(newRange);
+        
+        // Atualizar opacidade
+        updateTextOpacity();
+        
+        // Manter o popup visível
+        const rects = span.getClientRects();
+        if (rects.length > 0) {
+          showFormatPopup(rects[0]);
+        }
+      } catch (e2) {
+        console.error("Falha na abordagem alternativa:", e2);
+        alert("Não foi possível aplicar o ID à seleção. Por favor, selecione um texto mais simples.");
+      }
+    }
+  }
+}
+
+// Função atualizada para mostrar o popup usando o início da seleção
+function showFormatPopup(rect) {
+  // Posicionar popup
+  formatPopup.style.display = 'block';
+  
+  // Calcular posição junto ao início da seleção
+  let popupLeft = rect.left;
+  let popupTop = rect.top - formatPopup.offsetHeight - 10;
+  
+  // Verificar limites horizontais
+  if (popupLeft < 10) {
+    popupLeft = 10;
+  } else if (popupLeft + formatPopup.offsetWidth > window.innerWidth - 10) {
+    popupLeft = window.innerWidth - formatPopup.offsetWidth - 10;
+  }
+  
+  // Verificar limites verticais
+  if (popupTop < 10) {
+    popupTop = rect.bottom + 10;
+    
+    // Se também não couber abaixo, tentar à direita
+    if (popupTop + formatPopup.offsetHeight > window.innerHeight - 10) {
+      popupLeft = rect.right + 10;
+      popupTop = rect.top;
+      
+      // Se não couber à direita, tentar à esquerda
+      if (popupLeft + formatPopup.offsetWidth > window.innerWidth - 10) {
+        popupLeft = Math.max(10, rect.left - formatPopup.offsetWidth - 10);
+      }
+    }
+  }
+  
+  // Garantir que o popup fique visível mesmo que a seleção seja muito grande
+  if (popupTop < 0) {
+    popupTop = 10; // Fixar no topo da viewport se estiver fora da tela
+  }
+  
+  // Aplicar posição
+  formatPopup.style.left = `${popupLeft}px`;
+  formatPopup.style.top = `${popupTop}px`;
+  
+  // Atualizar estado dos botões de formatação
+  updateFormatButtonsState();
+}
+
+// Modificar o evento de tecla Enter no campo de ID para manter a seleção
+idInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    applyIdToSelection(idInput.value);
+    e.preventDefault(); // Impedir que o Enter crie uma nova linha
+    // Manter o foco no campo de ID para permitir novas entradas
+    setTimeout(() => {
+      idInput.focus();
+    }, 0);
+  } else if (e.key === 'ArrowUp') {
+    idInput.value = parseInt(idInput.value || 0) + 1;
+    e.preventDefault(); // Impedir a rolagem da página
+  } else if (e.key === 'ArrowDown') {
+    idInput.value = Math.max(0, parseInt(idInput.value || 0) - 1);
+    e.preventDefault(); // Impedir a rolagem da página
+  }
+});
