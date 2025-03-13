@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bloco de Notas Avançado</title>
+  <style>
+    :root {
+      --bg-color: #1e1e2e;
+      --header-bg: #181825;
+      --tab-bg: #313244;
+      --tab-active: #1e1e2e;
+      --text-color: #cdd6f4;
+      --accent-color: #89b4fa;
+      --border-color: #45475a;
+      --popup-bg: #313244;
+      --highlight-color: rgba(137, 180, 250, 0.2);
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', 'Arial', sans-serif;
+    }
+    
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .header {
+      background-color: var(--header-bg);
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .app-title {
+      font-size: 14px;
+      margin-right: 20px;
+      color: var(--accent-color);
+    }
+    
+    .tabs-container {
+      display: flex;
+      flex-grow: 1;
+      overflow-x: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--accent-color) var(--header-bg);
+    }
+    
+    .tabs-container::-webkit-scrollbar {
+      height: 4px;
+    }
+    
+    .tabs-container::-webkit-scrollbar-thumb {
+      background-color: var(--accent-color);
+      border-radius: 4px;
+    }
+    
+    .tab {
+      padding: 8px 16px;
+      background-color: var(--tab-bg);
+      margin-right: 4px;
+      border-radius: 4px 4px 0 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+    
+    .tab.active {
+      background-color: var(--tab-active);
+      border-bottom: 2px solid var(--accent-color);
+    }
+    
+    .tab-title {
+      margin-right: 8px;
+    }
+    
+    .tab-title-editable {
+      outline: none;
+      border: none;
+      background: transparent;
+      color: inherit;
+      font-size: inherit;
+      padding: 0;
+      min-width: 80px;
+    }
+    
+    .tab-title-editable:focus {
+      border-bottom: 1px dashed var(--accent-color);
+    }
+    
+    .close-tab {
+      width: 16px;
+      height: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      opacity: 0.6;
+      transition: all 0.2s;
+    }
+    
+    .close-tab:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+      opacity: 1;
+    }
+    
+    .new-tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-color);
+      font-size: 20px;
+      cursor: pointer;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      margin-left: 8px;
+    }
+    
+    .new-tab-btn:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .editor-container {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .editor {
+      flex-grow: 1;
+      padding: 16px;
+      background-color: var(--bg-color);
+      outline: none;
+      font-size: 16px;
+      line-height: 1.6;
+      caret-color: var(--accent-color);
+      display: none;
+      overflow-y: auto;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+    
+    .editor.active {
+      display: block;
+    }
+    
+    .editor:focus {
+      border: none;
+      outline: none;
+    }
+    
+    .editor::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .editor::-webkit-scrollbar-thumb {
+      background-color: var(--border-color);
+      border-radius: 4px;
+    }
+    
+    .format-popup {
+      position: absolute;
+      background-color: var(--popup-bg);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      padding: 10px;
+      z-index: 10;
+      display: none;
+      animation: fadeIn 0.2s ease;
+      border: 1px solid var(--border-color);
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .format-section {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .format-section:last-child {
+      margin-bottom: 0;
+    }
+    
+    .format-label {
+      font-size: 12px;
+      margin-right: 10px;
+      min-width: 60px;
+    }
+    
+    .format-buttons {
+      display: flex;
+      gap: 5px;
+    }
+    
+    .format-btn {
+      background: none;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      color: var(--text-color);
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .format-btn:hover, .format-btn.active {
+      background-color: var(--accent-color);
+      color: var(--bg-color);
+    }
+    
+    .format-select {
+      background-color: var(--tab-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+    
+    .id-input {
+      background-color: var(--tab-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 4px 8px;
+      width: 80px;
+    }
+    
+    .status-bar {
+      background-color: var(--header-bg);
+      padding: 4px 16px;
+      font-size: 12px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .faded, .normal {
+      transition: opacity 0.3s ease;
+    }
+
+    .faded {
+      opacity: 0.4 !important;
+    }
+
+    .normal {
+      opacity: 1 !important;
+    }
+    
+    [contenteditable=true]:empty:before {
+      content: attr(placeholder);
+      color: rgba(205, 214, 244, 0.5);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="app-title">Bloco de Notas</div>
+    <div class="tabs-container" id="tabs-container"></div>
+    <button class="new-tab-btn" id="new-tab-btn" title="Nova aba">+</button>
+  </div>
+  
+  <div class="editor-container" id="editor-container">
+    <div class="format-popup" id="format-popup">
+      <div class="format-section">
+        <div class="format-label">Estilo</div>
+        <div class="format-buttons">
+          <button class="format-btn" id="bold-btn" title="Negrito">B</button>
+          <button class="format-btn" id="italic-btn" title="Itálico">I</button>
+          <button class="format-btn" id="underline-btn" title="Sublinhado">U</button>
+        </div>
+      </div>
+      
+      <div class="format-section">
+        <div class="format-label">Fonte</div>
+        <select class="format-select" id="font-select">
+          <option value="'Segoe UI', 'Arial', sans-serif">Segoe UI</option>
+          <option value="'Arial', sans-serif">Arial</option>
+          <option value="'Times New Roman', serif">Times New Roman</option>
+          <option value="'Courier New', monospace">Courier New</option>
+          <option value="'Georgia', serif">Georgia</option>
+        </select>
+      </div>
+      
+      <div class="format-section">
+        <div class="format-label">Tamanho</div>
+        <select class="format-select" id="size-select">
+          <option value="12px">12px</option>
+          <option value="14px">14px</option>
+          <option value="16px" selected>16px</option>
+          <option value="18px">18px</option>
+          <option value="20px">20px</option>
+          <option value="24px">24px</option>
+        </select>
+      </div>
+      
+      <div class="format-section">
+        <div class="format-label">Cor</div>
+        <input type="color" class="format-btn" id="color-picker" value="#cdd6f4">
+      </div>
+      
+      <div class="format-section">
+        <div class="format-label">ID</div>
+        <input type="number" class="id-input" id="id-input" min="0" placeholder="ID">
+      </div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div id="cursor-position">Ln: 1, Col: 1</div>
+    <div id="current-id">ID: 0</div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const tabsContainer = document.getElementById('tabs-container');
+      const editorContainer = document.getElementById('editor-container');
+      const newTabBtn = document.getElementById('new-tab-btn');
+      const formatPopup = document.getElementById('format-popup');
+      const boldBtn = document.getElementById('bold-btn');
+      const italicBtn = document.getElementById('italic-btn');
+      const underlineBtn = document.getElementById('underline-btn');
+      const fontSelect = document.getElementById('font-select');
+      const sizeSelect = document.getElementById('size-select');
+      const colorPicker = document.getElementById('color-picker');
+      const idInput = document.getElementById('id-input');
+      const cursorPosition = document.getElementById('cursor-position');
+      const currentIdDisplay = document.getElementById('current-id');
+
+      let tabs = [];
+      let activeTabIndex = -1;
+      let currentSelectionRange = null;
+      let activeID = 0;
+
+      const documentNames = [
+        'Documento sem título'
+      ];
+
+      function createNewTab() {
+        const tabIndex = tabs.length;
+        const tabName = documentNames[Math.floor(Math.random() * documentNames.length)];
+
+        const tab = document.createElement('div');
+        tab.className = 'tab';
+        tab.innerHTML = `
+          <div class="tab-title">
+            <span class="tab-title-text">${tabName}</span>
+            <input type="text" class="tab-title-editable" value="${tabName}" style="display: none;">
+          </div>
+          <div class="close-tab">✕</div>
+        `;
+        tabsContainer.appendChild(tab);
+
+        tab.addEventListener('click', (e) => {
+          if (!e.target.classList.contains('close-tab') &&
+              !e.target.classList.contains('tab-title-editable')) {
+            setActiveTab(tabIndex);
+          }
+        });
+
+        const tabTitleText = tab.querySelector('.tab-title-text');
+        const tabTitleInput = tab.querySelector('.tab-title-editable');
+
+        tabTitleText.addEventListener('dblclick', () => {
+          tabTitleText.style.display = 'none';
+          tabTitleInput.style.display = 'inline-block';
+          tabTitleInput.focus();
+          tabTitleInput.select();
+        });
+
+        tabTitleInput.addEventListener('blur', () => {
+          finishTabRename(tabIndex, tabTitleInput, tabTitleText);
+        });
+
+        tabTitleInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            finishTabRename(tabIndex, tabTitleInput, tabTitleText);
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            tabTitleInput.value = tabs[tabIndex].title;
+            tabTitleText.style.display = 'inline';
+            tabTitleInput.style.display = 'none';
+          }
+        });
+
+        tab.querySelector('.close-tab').addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeTab(tabIndex);
+        });
+
+        const editor = document.createElement('div');
+        editor.className = 'editor';
+        editor.contentEditable = true;
+        editor.placeholder = 'Digite seu texto aqui...';
+        editor.dataset.tabIndex = tabIndex;
+        editorContainer.appendChild(editor);
+
+        editor.addEventListener('input', updateTabContent);
+        editor.addEventListener('mouseup', handleTextSelection);
+        editor.addEventListener('keyup', handleTextSelection);
+        editor.addEventListener('click', handleTextClick);
+        editor.addEventListener('keydown', trackCursorPosition);
+        editor.addEventListener('click', trackCursorPosition);
+        editor.addEventListener('focus', updateIDHighlighting);
+        editor.addEventListener('keyup', checkCursorInID);
+        editor.addEventListener('mouseup', checkCursorInID);
+
+        tabs.push({
+          element: tab,
+          editor: editor,
+          title: tabName,
+          content: ''
+        });
+
+        setActiveTab(tabIndex);
+        return tabIndex;
+      }
+
+      function finishTabRename(tabIndex, inputElement, textElement) {
+        const newTitle = inputElement.value.trim() || documentNames[0];
+        textElement.textContent = newTitle;
+        tabs[tabIndex].title = newTitle;
+        textElement.style.display = 'inline';
+        inputElement.style.display = 'none';
+      }
+
+      function setActiveTab(index) {
+        if (index >= 0 && index < tabs.length) {
+          if (activeTabIndex >= 0 && activeTabIndex < tabs.length) {
+            tabs[activeTabIndex].element.classList.remove('active');
+            tabs[activeTabIndex].editor.classList.remove('active');
+          }
+
+          tabs[index].element.classList.add('active');
+          tabs[index].editor.classList.add('active');
+          activeTabIndex = index;
+
+          tabs[index].editor.focus();
+
+          updateIDDisplay();
+          updateIDHighlighting();
+        }
+      }
+
+      function closeTab(index) {
+        if (tabs.length <= 1) {
+          tabs[0].editor.innerHTML = '';
+          tabs[0].content = '';
+          return;
+        }
+
+        tabs[index].element.remove();
+        tabs[index].editor.remove();
+        tabs.splice(index, 1);
+
+        tabs.forEach((tab, i) => {
+          tab.editor.dataset.tabIndex = i;
+          tab.element.querySelector('.close-tab').onclick = (e) => {
+            e.stopPropagation();
+            closeTab(i);
+          };
+
+          tab.element.onclick = (e) => {
+            if (!e.target.classList.contains('close-tab') &&
+                !e.target.classList.contains('tab-title-editable')) {
+              setActiveTab(i);
+            }
+          };
+
+          const tabTitleText = tab.element.querySelector('.tab-title-text');
+          const tabTitleInput = tab.element.querySelector('.tab-title-editable');
+
+          tabTitleText.ondblclick = () => {
+            tabTitleText.style.display = 'none';
+            tabTitleInput.style.display = 'inline-block';
+            tabTitleInput.focus();
+            tabTitleInput.select();
+          };
+        });
+
+        if (activeTabIndex >= index) {
+          activeTabIndex = Math.max(0, activeTabIndex - 1);
+        }
+
+        setActiveTab(activeTabIndex);
+      }
+
+      function updateTabContent() {
+        if (activeTabIndex >= 0) {
+          tabs[activeTabIndex].content = tabs[activeTabIndex].editor.innerHTML;
+        }
+      }
+
+      function checkCursorInID() {
+        if (activeTabIndex < 0) return;
+
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          let node = range.startContainer;
+          let parentWithID = null;
+
+          if (node.nodeType === 3) {
+            node = node.parentNode;
+          }
+
+          while (node && node !== tabs[activeTabIndex].editor) {
+            if (node.nodeType === 1 && node.tagName === 'SPAN' && node.hasAttribute('data-id')) {
+              parentWithID = node;
+              break;
+            }
+            node = node.parentNode;
+          }
+
+          if (parentWithID) {
+            const newID = parseInt(parentWithID.getAttribute('data-id'), 10);
+            if (newID !== activeID) {
+              activeID = newID;
+              updateIDDisplay();
+              updateIDHighlighting();
+            }
+          } else if (!formatPopup.contains(document.activeElement)) {
+            if (activeID !== 0) {
+              activeID = 0;
+              updateIDDisplay();
+              updateIDHighlighting();
+            }
+          }
+        }
+      }
+
+      let savedSelectionRange = null;
+      colorPicker.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+          savedSelectionRange = selection.getRangeAt(0).cloneRange();
+        }
+      });
+
+      colorPicker.addEventListener('input', (e) => {
+        if (savedSelectionRange) {
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(savedSelectionRange);
+          applyFormatting('foreColor', colorPicker.value);
+        }
+      });
+
+      function handleTextSelection(e) {
+        const selection = window.getSelection();
+
+        if (selection.rangeCount > 0 && !selection.isCollapsed) {
+          currentSelectionRange = selection.getRangeAt(0);
+          const range = selection.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+
+          formatPopup.style.display = 'block';
+          formatPopup.style.left = `${Math.min(rect.left + window.scrollX, window.innerWidth - formatPopup.offsetWidth - 20)}px`;
+
+          const popupHeight = formatPopup.offsetHeight;
+          const spaceBelow = window.innerHeight - (rect.bottom + window.scrollY);
+          const threshold = 150;
+
+          if (spaceBelow < popupHeight + threshold) {
+            formatPopup.style.top = `${rect.top + window.scrollY - popupHeight - 10}px`;
+          } else {
+            formatPopup.style.top = `${rect.bottom + window.scrollY + 10}px`;
+          }
+
+          let startNode = range.startContainer;
+          let parentSpan = null;
+
+          while (startNode && startNode !== tabs[activeTabIndex].editor) {
+            if (startNode.nodeType === 1 && startNode.tagName === 'SPAN' && startNode.hasAttribute('data-id')) {
+              parentSpan = startNode;
+              break;
+            }
+            startNode = startNode.parentNode;
+          }
+
+          idInput.value = parentSpan ? parentSpan.getAttribute('data-id') : activeID;
+        } else {
+          if (e && e.type === 'mouseup' &&
+              !formatPopup.contains(e.target) &&
+              e.target !== colorPicker) {
+            formatPopup.style.display = 'none';
+          }
+        }
+      }
+
+      function handleTextClick(e) {
+        const target = e.target;
+        const selection = window.getSelection();
+        
+        if (selection.isCollapsed &&
+            !formatPopup.contains(e.target) &&
+            e.target !== colorPicker) {
+          formatPopup.style.display = 'none';
+        }
+
+        if (target.tagName === 'SPAN' && target.hasAttribute('data-id')) {
+          const clickedId = parseInt(target.getAttribute('data-id'), 10);
+          activeID = clickedId;
+          updateIDDisplay();
+          updateIDHighlighting();
+        } else if (target === e.currentTarget && selection.isCollapsed) {
+          activeID = 0;
+          updateIDDisplay();
+          updateIDHighlighting();
+        }
+      }
+
+      function updateIDDisplay() {
+        currentIdDisplay.textContent = `ID: ${activeID}`;
+      }
+
+      function trackCursorPosition() {
+        setTimeout(() => {
+          const selection = window.getSelection();
+          if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const preCaretRange = range.cloneRange();
+
+            if (activeTabIndex >= 0 && tabs[activeTabIndex].editor) {
+              preCaretRange.selectNodeContents(tabs[activeTabIndex].editor);
+              preCaretRange.setEnd(range.endContainer, range.endOffset);
+              const text = preCaretRange.toString();
+
+              const lines = text.split('\n');
+              const line = lines.length;
+              const col = lines[lines.length - 1].length + 1;
+
+              cursorPosition.textContent = `Ln: ${line}, Col: ${col}`;
+            }
+          }
+        }, 0);
+      }
+
+      function updateIDHighlighting() {
+        if (activeTabIndex < 0) return;
+
+        const editor = tabs[activeTabIndex].editor;
+        const allSpans = editor.querySelectorAll('span[data-id]');
+
+        allSpans.forEach(span => {
+          span.classList.remove('faded', 'normal');
+          const spanId = parseInt(span.getAttribute('data-id'), 10);
+
+          if (spanId === 0 || spanId === activeID) {
+            span.classList.add('normal');
+          } else {
+            span.classList.add('faded');
+          }
+        });
+      }
+
+      function applyFormatting(command, value = null) {
+        let selectionToUse = currentSelectionRange;
+
+        if (!selectionToUse && command === 'foreColor' && savedSelectionRange) {
+          selectionToUse = savedSelectionRange;
+        }
+
+        if (!selectionToUse) return;
+
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(selectionToUse);
+
+        if (command === 'createSpan') {
+          const id = value;
+          const range = selection.getRangeAt(0);
+          let currentNode = range.commonAncestorContainer;
+          let parentSpans = [];
+
+          while (currentNode && currentNode !== tabs[activeTabIndex].editor) {
+            if (currentNode.nodeType === 1 && currentNode.tagName === 'SPAN' && currentNode.hasAttribute('data-id')) {
+              parentSpans.push(currentNode);
+            }
+            currentNode = currentNode.parentNode;
+          }
+
+          if (parentSpans.length > 0) {
+            let innerSpan = parentSpans[0];
+            innerSpan.setAttribute('data-id', id);
+            innerSpan.classList.remove('faded', 'normal');
+            innerSpan.classList.add(id == activeID ? 'normal' : 'faded');
+          } else {
+            const selectedContent = range.extractContents();
+            const span = document.createElement('span');
+            span.appendChild(selectedContent);
+            span.setAttribute('data-id', id);
+            span.classList.add(id == activeID ? 'normal' : 'faded');
+            range.insertNode(span);
+            mergeAdjacentSpans(tabs[activeTabIndex].editor);
+          }
+
+          activeID = parseInt(id, 10);
+          updateIDDisplay();
+          updateIDHighlighting();
+        } else if (['fontName', 'fontSize', 'foreColor'].includes(command)) {
+          document.execCommand(command, false, value);
+        } else {
+          document.execCommand(command, false, null);
+        }
+
+        updateTabContent();
+
+        const newSelection = window.getSelection();
+        if (newSelection.rangeCount > 0) {
+          currentSelectionRange = newSelection.getRangeAt(0).cloneRange();
+          const currentRange = newSelection.getRangeAt(0);
+          selection.removeAllRanges();
+          selection.addRange(currentRange);
+        }
+      }
+
+      function mergeAdjacentSpans(container) {
+        container.normalize();
+        const spans = Array.from(container.querySelectorAll('span[data-id]'));
+
+        for (let i = 0; i < spans.length; i++) {
+          const currentSpan = spans[i];
+          let parent = currentSpan.parentNode;
+          
+          while (parent && parent !== container) {
+            if (parent.tagName === 'SPAN' && parent.hasAttribute('data-id')) {
+              while (currentSpan.firstChild) {
+                parent.insertBefore(currentSpan.firstChild, currentSpan);
+              }
+              parent.removeChild(currentSpan);
+              break;
+            }
+            parent = parent.parentNode;
+          }
+        }
+      }
+
+      // ID Input event listeners
+      idInput.addEventListener('change', () => {
+        const id = idInput.value || '0';
+        applyFormatting('createSpan', id);
+      });
+
+      idInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          applyFormatting('createSpan', idInput.value || '0');
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          idInput.value = parseInt(idInput.value || '0') + 1;
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          idInput.value = Math.max(0, parseInt(idInput.value || '0') - 1);
+        }
+      });
+
+      idInput.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+
+      // Format button event listeners
+      boldBtn.addEventListener('click', () => applyFormatting('bold'));
+      italicBtn.addEventListener('click', () => applyFormatting('italic'));
+      underlineBtn.addEventListener('click', () => applyFormatting('underline'));
+
+      fontSelect.addEventListener('change', () => {
+        applyFormatting('fontName', fontSelect.value);
+      });
+
+      sizeSelect.addEventListener('change', () => {
+        applyFormatting('fontSize', sizeSelect.value);
+      });
+
+      newTabBtn.addEventListener('click', () => {
+        createNewTab();
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!formatPopup.contains(e.target) &&
+            e.target !== formatPopup &&
+            e.target !== colorPicker) {
+          const selection = window.getSelection();
+          if (selection.isCollapsed) {
+            formatPopup.style.display = 'none';
+          }
+        }
+      });
+
+      window.addEventListener('beforeunload', (e) => {
+        if (tabs.some(tab => tab.content.length > 0)) {
+          e.preventDefault();
+          e.returnValue = '';
+        }
+      });
+
+      // Initialize with first tab
+      createNewTab();
+    });
+  </script>
+</body>
+</html>

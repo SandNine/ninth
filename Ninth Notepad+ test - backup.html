@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bloco de Notas Avançado</title>
+  <style>
+    :root {
+      --bg-color: #1e1e2e;
+      --header-bg: #181825;
+      --tab-bg: #313244;
+      --tab-active: #1e1e2e;
+      --text-color: #cdd6f4;
+      --accent-color: #89b4fa;
+      --border-color: #45475a;
+      --popup-bg: #313244;
+      --highlight-color: rgba(137, 180, 250, 0.2);
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', 'Arial', sans-serif;
+    }
+    
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .header {
+      background-color: var(--header-bg);
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .app-title {
+      font-size: 14px;
+      margin-right: 20px;
+      color: var(--accent-color);
+    }
+    
+    .tabs-container {
+      display: flex;
+      flex-grow: 1;
+      overflow-x: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--accent-color) var(--header-bg);
+    }
+    
+    .tabs-container::-webkit-scrollbar {
+      height: 4px;
+    }
+    
+    .tabs-container::-webkit-scrollbar-thumb {
+      background-color: var(--accent-color);
+      border-radius: 4px;
+    }
+    
+    .tab {
+      padding: 8px 16px;
+      background-color: var(--tab-bg);
+      margin-right: 4px;
+      border-radius: 4px 4px 0 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+    
+    .tab.active {
+      background-color: var(--tab-active);
+      border-bottom: 2px solid var(--accent-color);
+    }
+    
+    .tab-title {
+      margin-right: 8px;
+    }
+    
+    .tab-title-editable {
+      outline: none;
+      border: none;
+      background: transparent;
+      color: inherit;
+      font-size: inherit;
+      padding: 0;
+      min-width: 80px;
+    }
+    
+    .tab-title-editable:focus {
+      border-bottom: 1px dashed var(--accent-color);
+    }
+    
+    .close-tab {
+      width: 16px;
+      height: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      opacity: 0.6;
+      transition: all 0.2s;
+    }
+    
+    .close-tab:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+      opacity: 1;
+    }
+    
+    .new-tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-color);
+      font-size: 20px;
+      cursor: pointer;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      margin-left: 8px;
+    }
+    
+    .new-tab-btn:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .editor-container {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .editor {
+      flex-grow: 1;
+      padding: 16px;
+      background-color: var(--bg-color);
+      outline: none;
+      font-size: 16px;
+      line-height: 1.6;
+      caret-color: var(--accent-color);
+      display: none;
+      overflow-y: auto;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+    
+    .editor.active {
+      display: block;
+    }
+    
+    .editor:focus {
+      border: none;
+      outline: none;
+    }
+    
+    .editor::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .editor::-webkit-scrollbar-thumb {
+      background-color: var(--border-color);
+      border-radius: 4px;
+    }
+    
+    .format-popup {
+      position: absolute;
+      background-color: var(--popup-bg);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      padding: 10px;
+      z-index: 10;
+      display: none;
+      animation: fadeIn 0.2s ease;
+      border: 1px solid var(--border-color);
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .format-section {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .format-section:last-child {
+      margin-bottom: 0;
+    }
+    
+    .format-label {
+      font-size: 12px;
+      margin-right: 10px;
+      min-width: 60px;
+    }
+    
+    .format-buttons {
+      display: flex;
+      gap: 5px;
+    }
+    
+    .format-btn {
+      background: none;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      color: var(--text-color);
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .format-btn:hover, .format-btn.active {
+      background-color: var(--accent-color);
+      color: var(--bg-color);
+    }
+    
+    .format-select {
+      background-color: var(--tab-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+    
+    .id-input {
+      background-color: var(--tab-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 4px 8px;
+      width: 80px;
+    }
+    
+    .status-bar {
+      background-color: var(--header-bg);
+      padding: 4px 16px;
+      font-size: 12px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+    }
+
+	.faded, .normal {
+	  transition: opacity 0.3s ease;
+	}
+
+	.faded {
+	  opacity: 0.4 !important;
+	}
+
+	.normal {
+	  opacity: 1 !important;
+	}
+    
+    [contenteditable=true]:empty:before {
+      content: attr(placeholder);
+      color: rgba(205, 214, 244, 0.5);
+      pointer-events: none;
+    }
+
+    .status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.status-left, .status-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.status-btn {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+}
+
+.status-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+    /* Adicione ao bloco de CSS existente */
+.editor-container {
+  position: relative;
+}
+
+.editor-with-line-numbers {
+  padding-left: 48px !important;
+}
+
+.line-numbers {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40px;
+  height: 100%;
+  padding: 16px 0;
+  background-color: var(--header-bg);
+  color: var(--border-color);
+  font-size: 12px;
+  text-align: right;
+  border-right: 1px solid var(--border-color);
+  user-select: none;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.line-number {
+  padding: 0 8px;
+  height: 24px;
+  line-height: 24px;
+}
+    
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="app-title">Bloco de Notas</div>
+    <div class="tabs-container" id="tabs-container">
+      <!-- Tabs are generated by JavaScript -->
+    </div>
+    <button class="new-tab-btn" id="new-tab-btn" title="Nova aba">+</button>
+  </div>
+  
+  <div class="editor-container" id="editor-container">
+    <!-- Editors are generated by JavaScript -->
+    
+    <div class="format-popup" id="format-popup">
+      <div class="format-section">
+        <div class="format-label">Estilo</div>
+        <div class="format-buttons">
+          <button class="format-btn" id="bold-btn" title="Negrito">B</button>
+          <button class="format-btn" id="italic-btn" title="Itálico">I</button>
+          <button class="format-btn" id="underline-btn" title="Sublinhado">U</button>
+        </div>
+      </div>
+      
+      <div class="format-section">
+        <div class="format-label">Fonte</div>
+        <select class="format-select" id="font-select">
+          <option value="'Segoe UI', 'Arial', sans-serif">Segoe UI</option>
+          <option value="'Arial', sans-serif">Arial</option>
+          <option value="'Times New Roman', serif">Times New Roman</option>
+          <option value="'Courier New', monospace">Courier New</option>
+          <option value="'Georgia', serif">Georgia</option>
+        </select>
+      </div>
+      
+      <div class="format-section">
+        <div class="format-label">Tamanho</div>
+        <select class="format-select" id="size-select">
+          <option value="12px">12px</option>
+          <option value="14px">14px</option>
+          <option value="16px" selected>16px</option>
+          <option value="18px">18px</option>
+          <option value="20px">20px</option>
+          <option value="24px">24px</option>
+        </select>
+      </div>
+      
+      <div class="format-section">
+        <div class="format-label">Cor</div>
+        <input type="color" class="format-btn" id="color-picker" value="#cdd6f4">
+      </div>
+      
+      <div class="format-section">
+        <div class="format-label">ID</div>
+        <input type="number" class="id-input" id="id-input" min="0" placeholder="ID">
+      </div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-left">
+      <div id="cursor-position">Ln: 1, Col: 1</div>
+      <div id="current-id">ID: 0</div>
+    </div>
+    <div class="status-right">
+      <button id="line-numbers-btn" class="status-btn" title="Mostrar/Ocultar Numeração de Linhas">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="9" y1="4" x2="20" y2="4"></line>
+          <line x1="9" y1="8" x2="20" y2="8"></line>
+          <line x1="9" y1="12" x2="20" y2="12"></line>
+          <line x1="9" y1="16" x2="20" y2="16"></line>
+          <line x1="9" y1="20" x2="20" y2="20"></line>
+          <line x1="5" y1="4" x2="5" y2="4"></line>
+          <line x1="5" y1="8" x2="5" y2="8"></line>
+          <line x1="5" y1="12" x2="5" y2="12"></line>
+          <line x1="5" y1="16" x2="5" y2="16"></line>
+          <line x1="5" y1="20" x2="5" y2="20"></line>
+        </svg>
+      </button>
+      <button id="text-inversion-btn" class="status-btn" title="Inversão Textual">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 17v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"></path>
+          <polyline points="16 6 12 2 8 6"></polyline>
+          <line x1="12" y1="2" x2="12" y2="16"></line>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+   const tabsContainer = document.getElementById('tabs-container');
+   const editorContainer = document.getElementById('editor-container');
+   const newTabBtn = document.getElementById('new-tab-btn');
+   const formatPopup = document.getElementById('format-popup');
+   const boldBtn = document.getElementById('bold-btn');
+   const italicBtn = document.getElementById('italic-btn');
+   const underlineBtn = document.getElementById('underline-btn');
+   const fontSelect = document.getElementById('font-select');
+   const sizeSelect = document.getElementById('size-select');
+   const colorPicker = document.getElementById('color-picker');
+   const idInput = document.getElementById('id-input');
+   const cursorPosition = document.getElementById('cursor-position');
+   const currentIdDisplay = document.getElementById('current-id');
+   const lineNumbersBtn = document.getElementById('line-numbers-btn');
+
+   let showLineNumbers = false;
+   let tabs = [];
+   let activeTabIndex = -1;
+   let currentSelectionRange = null;
+   let activeID = 0; // ID que está atualmente ativo/focado
+
+   // Nomes para sugestões de documentos de texto
+   const documentNames = [
+     'Documento sem título'
+   ];
+
+   // Initialize with one tab
+   createNewTab();
+
+   // Create a new tab
+   function createNewTab() {
+     const tabIndex = tabs.length;
+     const tabName = documentNames[Math.floor(Math.random() * documentNames.length)];
+
+     // Create tab button
+     const tab = document.createElement('div');
+     tab.className = 'tab';
+     tab.innerHTML = `
+       <div class="tab-title">
+         <span class="tab-title-text">${tabName}</span>
+         <input type="text" class="tab-title-editable" value="${tabName}" style="display: none;">
+       </div>
+       <div class="close-tab">✕</div>
+     `;
+     tabsContainer.appendChild(tab);
+
+     // Add click event to tab
+     tab.addEventListener('click', (e) => {
+       if (!e.target.classList.contains('close-tab') &&
+           !e.target.classList.contains('tab-title-editable')) {
+         setActiveTab(tabIndex);
+       }
+     });
+
+     // Add double click event to tab title for editing
+     const tabTitleText = tab.querySelector('.tab-title-text');
+     const tabTitleInput = tab.querySelector('.tab-title-editable');
+
+     tabTitleText.addEventListener('dblclick', () => {
+       tabTitleText.style.display = 'none';
+       tabTitleInput.style.display = 'inline-block';
+       tabTitleInput.focus();
+       tabTitleInput.select();
+     });
+
+     tabTitleInput.addEventListener('blur', () => {
+       finishTabRename(tabIndex, tabTitleInput, tabTitleText);
+     });
+
+     tabTitleInput.addEventListener('keydown', (e) => {
+       if (e.key === 'Enter') {
+         e.preventDefault();
+         finishTabRename(tabIndex, tabTitleInput, tabTitleText);
+       } else if (e.key === 'Escape') {
+         e.preventDefault();
+         tabTitleInput.value = tabs[tabIndex].title;
+         tabTitleText.style.display = 'inline';
+         tabTitleInput.style.display = 'none';
+       }
+     });
+
+     // Add click event to close button
+     tab.querySelector('.close-tab').addEventListener('click', (e) => {
+       e.stopPropagation();
+       closeTab(tabIndex);
+     });
+
+     // Create editor
+     const editor = document.createElement('div');
+     editor.className = 'editor';
+     editor.contentEditable = true;
+     editor.placeholder = 'Digite seu texto aqui...';
+     editor.dataset.tabIndex = tabIndex;
+     editorContainer.appendChild(editor);
+
+     // Add editor event listeners
+     editor.addEventListener('input', updateTabContent);
+     editor.addEventListener('mouseup', handleTextSelection);
+     editor.addEventListener('keyup', handleTextSelection);
+     editor.addEventListener('click', handleTextClick);
+     editor.addEventListener('keydown', trackCursorPosition);
+     editor.addEventListener('click', trackCursorPosition);
+     editor.addEventListener('focus', updateIDHighlighting);
+     editor.addEventListener('keyup', checkCursorInID);
+     editor.addEventListener('mouseup', checkCursorInID);
+    editor.addEventListener('keydown', function(e) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;');
+    updateTabContent();
+  }
+});
+editor.addEventListener('click', trackCursorPosition);
+
+     // Store tab data
+     tabs.push({
+       element: tab,
+       editor: editor,
+       title: tabName,
+       content: ''
+     });
+
+     // Set as active tab
+     setActiveTab(tabIndex);
+     return tabIndex;
+   }
+
+   // Finish tab renaming
+   function finishTabRename(tabIndex, inputElement, textElement) {
+     const newTitle = inputElement.value.trim() || documentNames[0];
+     textElement.textContent = newTitle;
+     tabs[tabIndex].title = newTitle;
+     textElement.style.display = 'inline';
+     inputElement.style.display = 'none';
+   }
+
+   // Set active tab
+   function setActiveTab(index) {
+     if (index >= 0 && index < tabs.length) {
+       // Deactivate current active tab
+       if (activeTabIndex >= 0 && activeTabIndex < tabs.length) {
+         tabs[activeTabIndex].element.classList.remove('active');
+         tabs[activeTabIndex].editor.classList.remove('active');
+       }
+
+       // Activate new tab
+       tabs[index].element.classList.add('active');
+       tabs[index].editor.classList.add('active');
+       activeTabIndex = index;
+
+       // Focus the editor
+       tabs[index].editor.focus();
+
+       // Update the ID display
+       updateIDDisplay();
+       updateIDHighlighting();
+     }
+   }
+
+   // Close tab
+   function closeTab(index) {
+     if (tabs.length <= 1) {
+       // Don't close the last tab, reset it instead
+       tabs[0].editor.innerHTML = '';
+       tabs[0].content = '';
+       return;
+     }
+
+     // Remove DOM elements
+  tabs[index].editor.removeEventListener('input', updateTabContent);
+  tabs[index].editor.removeEventListener('mouseup', handleTextSelection);
+  tabs[index].editor.removeEventListener('keyup', handleTextSelection);
+  tabs[index].editor.removeEventListener('click', handleTextClick);
+  tabs[index].editor.removeEventListener('keydown', trackCursorPosition);
+  tabs[index].editor.removeEventListener('click', trackCursorPosition);
+  tabs[index].editor.removeEventListener('focus', updateIDHighlighting);
+  tabs[index].editor.removeEventListener('keyup', checkCursorInID);
+  tabs[index].editor.removeEventListener('mouseup', checkCursorInID);
+  tabs[index].editor.removeEventListener('scroll', syncLineNumbersScroll);
+     tabs[index].element.remove();
+     tabs[index].editor.remove();
+
+
+     // Remove from array
+     tabs.splice(index, 1);
+
+     // Update data-tabIndex attributes and references
+     tabs.forEach((tab, i) => {
+       tab.editor.dataset.tabIndex = i;
+       tab.element.querySelector('.close-tab').onclick = (e) => {
+         e.stopPropagation();
+         closeTab(i);
+       };
+
+       tab.element.onclick = (e) => {
+         if (!e.target.classList.contains('close-tab') &&
+             !e.target.classList.contains('tab-title-editable')) {
+           setActiveTab(i);
+         }
+       };
+
+       // Update double click event
+       const tabTitleText = tab.element.querySelector('.tab-title-text');
+       const tabTitleInput = tab.element.querySelector('.tab-title-editable');
+
+       tabTitleText.ondblclick = () => {
+         tabTitleText.style.display = 'none';
+         tabTitleInput.style.display = 'inline-block';
+         tabTitleInput.focus();
+         tabTitleInput.select();
+       };
+     });
+
+     // Update active tab
+     if (activeTabIndex >= index) {
+       activeTabIndex = Math.max(0, activeTabIndex - 1);
+     }
+
+     setActiveTab(activeTabIndex);
+   }
+
+   // Update tab content
+   function updateTabContent() {
+     if (activeTabIndex >= 0) {
+       tabs[activeTabIndex].content = tabs[activeTabIndex].editor.innerHTML;
+     }
+   }
+
+   // Check if the cursor is inside a span with an ID
+   function checkCursorInID() {
+     if (activeTabIndex < 0) return;
+
+     const selection = window.getSelection();
+     if (selection.rangeCount > 0) {
+       const range = selection.getRangeAt(0);
+
+       // Pegamos o nó onde o cursor está posicionado
+       let node = range.startContainer;
+       let parentWithID = null;
+
+       // Se estamos em um nó de texto, precisamos verificar o elemento pai
+       if (node.nodeType === 3) { // Nó de texto
+         node = node.parentNode;
+       }
+
+       // Procuramos o elemento pai mais próximo com data-id
+       while (node && node !== tabs[activeTabIndex].editor) {
+         if (node.nodeType === 1 && node.tagName === 'SPAN' && node.hasAttribute('data-id')) {
+           parentWithID = node;
+           break;
+         }
+         node = node.parentNode;
+       }
+
+       // Se encontramos um span com ID, atualize o ID ativo
+       if (parentWithID) {
+         const newID = parseInt(parentWithID.getAttribute('data-id'), 10);
+         if (newID !== activeID) {
+           activeID = newID;
+           updateIDDisplay();
+           updateIDHighlighting();
+         }
+       } else if (!formatPopup.contains(document.activeElement)) {
+         // Se não estamos em um span com ID e não estamos no popup de formatação,
+         // definimos o ID ativo como 0
+         if (activeID !== 0) {
+           activeID = 0;
+           updateIDDisplay();
+           updateIDHighlighting();
+         }
+       }
+     }
+   }
+
+   // Guarda a seleção quando o mouse entra no color picker
+   let savedSelectionRange = null;
+   colorPicker.addEventListener('mousedown', (e) => {
+     // Impede que o evento de mousedown se propague, evitando a perda da seleção
+     e.stopPropagation();
+     // Guarda a seleção atual para uso posterior
+     const selection = window.getSelection();
+     if (selection.rangeCount > 0) {
+       savedSelectionRange = selection.getRangeAt(0).cloneRange();
+     }
+   });
+
+   colorPicker.addEventListener('input', (e) => {
+     // Restaura a seleção salva antes de aplicar a cor
+     if (savedSelectionRange) {
+       const selection = window.getSelection();
+       selection.removeAllRanges();
+       selection.addRange(savedSelectionRange);
+
+       // Aplica a formatação de cor
+       applyFormatting('foreColor', colorPicker.value);
+     }
+   });
+
+   // Handle text selection for format popup
+   function handleTextSelection(e) {
+     const selection = window.getSelection();
+
+     if (selection.rangeCount > 0 && !selection.isCollapsed) {
+       currentSelectionRange = selection.getRangeAt(0);
+
+       // Get selection coordinates to position popup
+       const range = selection.getRangeAt(0);
+       const rect = range.getBoundingClientRect();
+
+       // Position the popup
+       formatPopup.style.display = 'block';
+       formatPopup.style.left = `${Math.min(rect.left + window.scrollX, window.innerWidth - formatPopup.offsetWidth - 20)}px`;
+
+       // Atualizar o estado dos botões de formatação
+          updateFormatButtonState();
+
+       // Verifica se há espaço suficiente abaixo da seleção
+       const popupHeight = formatPopup.offsetHeight;
+       const spaceBelow = window.innerHeight - (rect.bottom + window.scrollY);
+       const threshold = 150; // Defina um valor que considere "muito próximo do fundo"
+
+       if (spaceBelow < popupHeight + threshold) {
+         // Posiciona acima da seleção se estiver próximo do fundo da tela
+         formatPopup.style.top = `${rect.top + window.scrollY - popupHeight - 10}px`;
+       } else {
+         // Posicionamento normal abaixo da seleção
+         formatPopup.style.top = `${rect.bottom + window.scrollY + 10}px`;
+       }
+
+       // Check if the selection is completely inside a span with a data-id
+       let startNode = range.startContainer;
+       let parentSpan = null;
+
+       // Find closest parent span with data-id
+       while (startNode && startNode !== tabs[activeTabIndex].editor) {
+         if (startNode.nodeType === 1 && startNode.tagName === 'SPAN' && startNode.hasAttribute('data-id')) {
+           parentSpan = startNode;
+           break;
+         }
+         startNode = startNode.parentNode;
+       }
+
+       // Set ID input value based on current selection
+       if (parentSpan) {
+         idInput.value = parentSpan.getAttribute('data-id');
+       } else {
+         idInput.value = activeID;
+       }
+     } else {
+       // Se for um click fora da seleção, não feche o popup se for o próprio popup
+       // ou se estamos interagindo com elementos do popup
+       if (e && e.type === 'mouseup' &&
+           !formatPopup.contains(e.target) &&
+           e.target !== colorPicker) {
+         formatPopup.style.display = 'none';
+       }
+     }
+   }
+
+   // Handle text click for ID feature
+   function handleTextClick(e) {
+     const target = e.target;
+
+     // Não fechamos o popup se estivermos clicando no próprio popup ou em elementos dentro dele
+     const selection = window.getSelection();
+     if (selection.isCollapsed &&
+         !formatPopup.contains(e.target) &&
+         e.target !== colorPicker) {
+       formatPopup.style.display = 'none';
+     }
+
+     if (target.tagName === 'SPAN' && target.hasAttribute('data-id')) {
+       const clickedId = parseInt(target.getAttribute('data-id'), 10);
+       activeID = clickedId;
+       updateIDDisplay();
+       updateIDHighlighting();
+     } else if (target === e.currentTarget && selection.isCollapsed) {
+       // Clicked on empty area of editor with no selection
+       activeID = 0;
+       updateIDDisplay();
+       updateIDHighlighting();
+     }
+   }
+
+   // Update ID display in status bar
+   function updateIDDisplay() {
+     currentIdDisplay.textContent = `ID: ${activeID}`;
+   }
+
+   // Track cursor position
+   function trackCursorPosition() {
+     setTimeout(() => {
+       const selection = window.getSelection();
+       if (selection.rangeCount > 0) {
+         const range = selection.getRangeAt(0);
+         const preCaretRange = range.cloneRange();
+
+         // Make sure we have an active editor
+         if (activeTabIndex >= 0 && tabs[activeTabIndex].editor) {
+           preCaretRange.selectNodeContents(tabs[activeTabIndex].editor);
+           preCaretRange.setEnd(range.endContainer, range.endOffset);
+           const text = preCaretRange.toString();
+
+           // Count lines and columns
+           const lines = text.split('\n');
+           const line = lines.length;
+           const col = lines[lines.length - 1].length + 1;
+
+           cursorPosition.textContent = `Ln: ${line}, Col: ${col}`;
+         }
+       }
+     }, 0);
+   }
+
+   // Update ID highlighting function
+   function updateIDHighlighting() {
+     if (activeTabIndex < 0) return;
+
+     const editor = tabs[activeTabIndex].editor;
+     const allSpans = editor.querySelectorAll('span[data-id]');
+
+     allSpans.forEach(span => {
+       // Remove all possible classes to avoid duplication
+       span.classList.remove('faded');
+       span.classList.remove('normal');
+
+       const spanId = parseInt(span.getAttribute('data-id'), 10);
+
+       if (spanId === 0 || spanId === activeID) {
+         // ID 0 or active ID always has maximum opacity
+         span.classList.add('normal');
+       } else {
+         // Other IDs have reduced fixed opacity
+         span.classList.add('faded');
+       }
+     });
+   }
+
+ // Fix the applyFormatting function to properly handle ID changes and maintain selection
+function applyFormatting(command, value = null) {
+  let selectionToUse = currentSelectionRange;
+
+  // If we don't have a stored selection and the command is foreColor, use the selection saved by the color picker
+  if (!selectionToUse && command === 'foreColor' && savedSelectionRange) {
+    selectionToUse = savedSelectionRange;
+  }
+
+  if (!selectionToUse) return;
+
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(selectionToUse);
+
+  if (command === 'createSpan') {
+    const id = value;
+    const range = selection.getRangeAt(0);
+
+    // First, check if we're already inside a span with a data-id
+    let currentNode = range.commonAncestorContainer;
+    let parentSpans = [];
+
+    // Find all parent spans with data-id that contain our selection
+    while (currentNode && currentNode !== tabs[activeTabIndex].editor) {
+      if (currentNode.nodeType === 1 && currentNode.tagName === 'SPAN' && currentNode.hasAttribute('data-id')) {
+        parentSpans.push(currentNode);
+      }
+      currentNode = currentNode.parentNode;
+    }
+
+    // If we have parent spans, we need to handle them
+    if (parentSpans.length > 0) {
+      // Use the innermost span that completely contains our selection
+      let innerSpan = parentSpans[0];
+
+      // Simply update the ID of the innermost span
+      innerSpan.setAttribute('data-id', id);
+
+      // Update classes to ensure proper state
+      innerSpan.classList.remove('faded');
+      innerSpan.classList.remove('normal');
+      innerSpan.classList.add(id == activeID ? 'normal' : 'faded');
+    } else {
+      // Create a new span with the ID
+      const selectedContent = range.extractContents();
+      const span = document.createElement('span');
+      span.appendChild(selectedContent);
+      span.setAttribute('data-id', id);
+
+      // Set the correct class for the new span
+      span.classList.add(id == activeID ? 'normal' : 'faded');
+
+      range.insertNode(span);
+
+      // Merge adjacent spans with the same ID to prevent nesting
+      mergeAdjacentSpans(tabs[activeTabIndex].editor);
+    }
+
+    // Update the active ID
+    activeID = parseInt(id, 10);
+    updateIDDisplay();
+    updateIDHighlighting();
+ } else if (command === 'bold' || command === 'italic' || command === 'underline') {
+    // Use execCommand directly for bold, italic, and underline
+    document.execCommand(command, false, null);
+} else if (command === 'fontName') {
+  // Usar CSS para aplicar a família de fontes
+  document.execCommand('styleWithCSS', false, true);
+
+  // Aplicar a fonte usando execCommand
+  document.execCommand('fontName', false, value);
+
+  // Garantir que a fonte foi aplicada corretamente
+  const fontElements = document.getElementsByTagName('font');
+  for (let i = fontElements.length - 1; i >= 0; i--) {
+    if (selection.containsNode(fontElements[i], true)) {
+      fontElements[i].style.fontFamily = value;
+    }
+  }
+}
+
+// Atualizar o estado dos botões após a formatação
+updateFormatButtonState();
+
+function setupSelectionChangeListener() {
+  document.addEventListener('selectionchange', function() {
+    if (formatPopup.style.display === 'block') {
+      updateFormatButtonState();
+    }
+  });
+}
+
+  // Agora modificamos o tamanho via CSS nos elementos selecionados
+  if (command === 'fontSize') {
+  // Para o tamanho da fonte, precisamos usar CSS diretamente
+  document.execCommand('styleWithCSS', false, true);
+  document.execCommand('fontSize', false, '1'); // Isso dá uma base para trabalhar
+
+  // Agora modificamos o tamanho via CSS nos elementos selecionados
+  const fontElements = document.getElementsByTagName('font');
+  for (let i = fontElements.length - 1; i >= 0; i--) {
+    if (selection.containsNode(fontElements[i], true)) {
+      // Substituir a tag font por um span com estilo CSS específico
+      const span = document.createElement('span');
+      span.style.fontSize = value;
+
+      // Mover o conteúdo da tag font para o novo span
+      while (fontElements[i].firstChild) {
+        span.appendChild(fontElements[i].firstChild);
+      }
+
+      // Substituir a tag font pelo span
+      fontElements[i].parentNode.replaceChild(span, fontElements[i]);
+    }
+  }
+}
+}
+
+// Fix the event listeners for formatting buttons
+function setupFormatButtonListeners() {
+  // Bold button event listener
+  boldBtn.addEventListener('click', () => {
+    applyFormatting('bold');
+  });
+
+  // Italic button event listener
+  italicBtn.addEventListener('click', () => {
+    applyFormatting('italic');
+  });
+
+  // Underline button event listener
+  underlineBtn.addEventListener('click', () => {
+    applyFormatting('underline');
+  });
+
+  // Font family select event listener
+  fontSelect.addEventListener('change', () => {
+    applyFormatting('fontName', fontSelect.value);
+  });
+
+  // Font size select event listener
+  sizeSelect.addEventListener('change', () => {
+    applyFormatting('fontSize', sizeSelect.value);
+  });
+}
+
+   // Add a new function to merge adjacent spans with the same ID
+   function mergeAdjacentSpans(container) {
+     // First normalize the DOM to combine adjacent text nodes
+     container.normalize();
+
+     // Get all spans with data-id
+     const spans = Array.from(container.querySelectorAll('span[data-id]'));
+
+     for (let i = 0; i < spans.length; i++) {
+       const currentSpan = spans[i];
+
+       // Check if this span is nested inside another span with data-id
+       let parent = currentSpan.parentNode;
+       while (parent && parent !== container) {
+         if (parent.tagName === 'SPAN' && parent.hasAttribute('data-id')) {
+           // This is a nested span with an ID
+           // Move all children of the nested span to its parent
+           while (currentSpan.firstChild) {
+             parent.insertBefore(currentSpan.firstChild, currentSpan);
+           }
+           // Remove the now-empty nested span
+           parent.removeChild(currentSpan);
+           break;
+         }
+         parent = parent.parentNode;
+       }
+     }
+   }
+
+
+  
+   // Atualiza o estado visual dos botões de formatação com base na seleção atual
+function updateFormatButtonState() {
+ // Verifica se algum texto está selecionado
+  const selection = window.getSelection();
+  if (!selection.rangeCount) return;
+
+
+  // Obtém o estado atual da formatação
+  boldBtn.classList.toggle('active', document.queryCommandState('bold'));
+  italicBtn.classList.toggle('active', document.queryCommandState('italic'));
+  underlineBtn.classList.toggle('active', document.queryCommandState('underline'));
+
+  // Para fontes e tamanhos, precisaríamos verificar o elemento pai
+  const parentElement = selection.anchorNode.parentElement;
+  if (parentElement) {
+    // Tentar obter a fonte atual
+    const computedStyle = window.getComputedStyle(parentElement);
+    const currentFont = computedStyle.fontFamily;
+    const currentSize = computedStyle.fontSize;
+
+    // Atualizar os selects para mostrar os valores atuais
+    for (let i = 0; i < fontSelect.options.length; i++) {
+      if (currentFont.includes(fontSelect.options[i].text)) {
+        fontSelect.selectedIndex = i;
+        break;
+      }
+    }
+
+    for (let i = 0; i < sizeSelect.options.length; i++) {
+      if (sizeSelect.options[i].value === currentSize) {
+        sizeSelect.selectedIndex = i;
+        break;
+      }
+    }
+  }
+}
+
+   // Função para inversão textual
+   function applyTextInversion(text) {
+     if (!text) return text;
+
+     // 1.1. Processamento de cores hexadecimais
+     let processedText = text.replace(/#([A-Fa-f0-9]{6})\s(.*?)\s#([A-Fa-f0-9]{6})/g, function(match, startColor, content, endColor) {
+       // Aplicar a cor ao conteúdo
+       return `<span style="color: #${startColor};">${content}</span>`;
+     });
+
+     // 1.2. Processamento de IDs
+     processedText = processedText.replace(/\$\/(\d+)\/\$(.*?)\$\/\1\/\$/g, function(match, id, content) {
+       if (id === '0') return match; // Não aplica para ID 0
+       return `<span data-id="${id}" class="${id == activeID ? 'normal' : 'faded'}">${content}</span>`;
+     });
+
+     // 1.3. Processamento de negrito
+     processedText = processedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+     // 1.4. Processamento de itálico
+     processedText = processedText.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+     // 1.5. Processamento de sublinhado
+     processedText = processedText.replace(/\|(.*?)\|/g, '<u>$1</u>');
+
+     return processedText;
+   }
+
+   // Função para aplicar inversão textual à seleção atual
+   function applyTextInversionToSelection() {
+     if (activeTabIndex < 0) return;
+
+     const selection = window.getSelection();
+     if (!selection.rangeCount) return;
+
+     const range = selection.getRangeAt(0);
+     const selectedText = range.toString();
+
+     if (!selectedText.trim()) return;
+
+     // Processar o texto selecionado
+     const processedHTML = applyTextInversion(selectedText);
+
+     // Criar um elemento temporário para armazenar o HTML resultante
+     const tempElement = document.createElement('div');
+     tempElement.innerHTML = processedHTML;
+
+     // Remover o conteúdo original da seleção
+     range.deleteContents();
+
+     // Inserir o conteúdo processado
+     const fragment = document.createDocumentFragment();
+     while (tempElement.firstChild) {
+       fragment.appendChild(tempElement.firstChild);
+     }
+
+     range.insertNode(fragment);
+
+     // Atualizar o conteúdo da aba
+     updateTabContent();
+
+     // Atualizar a ID highlighting
+     updateIDHighlighting();
+   }
+
+   // Button event listeners
+   boldBtn.addEventListener('click', () => applyFormatting('bold'));
+   italicBtn.addEventListener('click', () => applyFormatting('italic'));
+   underlineBtn.addEventListener('click', () => applyFormatting('underline'));
+
+   fontSelect.addEventListener('change', () => {
+     applyFormatting('fontName', fontSelect.value);
+   });
+
+   sizeSelect.addEventListener('change', () => {
+     applyFormatting('fontSize', sizeSelect.value);
+   });
+
+   // O evento input para o color picker está definido anteriormente para preservar a seleção
+
+   idInput.addEventListener('change', () => {
+     const id = idInput.value || '0';
+     applyFormatting('createSpan', id);
+   });
+
+   // New tab button event
+   newTabBtn.addEventListener('click', () => {
+     createNewTab();
+   });
+
+   // Click outside to close format popup, mas não quando clicar no color picker ou em seus elementos
+   document.addEventListener('click', (e) => {
+     if (!formatPopup.contains(e.target) &&
+         e.target !== formatPopup &&
+         e.target !== colorPicker) {
+       const selection = window.getSelection();
+       if (selection.isCollapsed) {
+         formatPopup.style.display = 'none';
+       }
+     }
+   });
+
+   // Prevent closing the page accidentally
+   window.addEventListener('beforeunload', (e) => {
+     if (tabs.some(tab => tab.content.length > 0)) {
+       e.preventDefault();
+       e.returnValue = '';
+     }
+   });
+
+   // Adicionar ícones ao popup de formatação
+ function updateFormatPopupIcons() {
+  boldBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path></svg>';
+  italicBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="4" x2="10" y2="4"></line><line x1="14" y1="20" x2="5" y2="20"></line><line x1="15" y1="4" x2="9" y2="20"></line></svg>';
+  underlineBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"></path><line x1="4" y1="21" x2="20" y2="21"></line></svg>';
+}
+
+  lineNumbersBtn.addEventListener('click', toggleLineNumbers);
+  document.getElementById('text-inversion-btn').addEventListener('click', () => {
+  const selection = window.getSelection();
+
+  // Check if there's an active tab
+  if (activeTabIndex >= 0) {
+    const editor = tabs[activeTabIndex].editor;
+
+    // If there's a selection, apply inversion to selection only
+    if (selection.rangeCount > 0 && !selection.isCollapsed) {
+      currentSelectionRange = selection.getRangeAt(0).cloneRange();
+      applyTextInversionToSelection();
+    }
+    // If no selection, apply to all content in the editor
+    else {
+      // Store the entire editor content
+      const allText = editor.innerHTML;
+
+      // Process the entire text
+      const processedHTML = applyTextInversion(allText);
+
+      // Replace editor content with processed content
+      editor.innerHTML = processedHTML;
+
+      // Update tab content
+      updateTabContent();
+
+      // Update ID highlighting
+      updateIDHighlighting();
+    }
+  }
+});
+
+function createFixedLineNumbers() {
+  if (activeTabIndex < 0) return;
+
+  const editor = tabs[activeTabIndex].editor;
+
+  // Add class to editor to adjust padding
+  editor.classList.add('editor-with-line-numbers');
+
+  // Create line numbers container
+  let lineNumbers = document.createElement('div');
+  lineNumbers.className = 'line-numbers';
+  lineNumbers.id = 'line-numbers-' + activeTabIndex;
+
+  // Create a large number of fixed line numbers (e.g., 1000 lines)
+  for (let i = 1; i <= 1000; i++) {
+    const lineNumber = document.createElement('div');
+    lineNumber.className = 'line-number';
+    lineNumber.textContent = i;
+    lineNumbers.appendChild(lineNumber);
+  }
+
+  // Insert line numbers container before editor
+  editor.parentNode.insertBefore(lineNumbers, editor);
+
+  // Synchronize scrolling
+  editor.addEventListener('scroll', syncLineNumbersScroll);
+}
+
+// Adicione esta função para alternar a exibição de números de linha:
+function toggleLineNumbers() {
+  showLineNumbers = !showLineNumbers;
+
+  if (showLineNumbers) {
+    // Show line numbers
+    createFixedLineNumbers();
+  } else {
+    // Hide line numbers
+    removeLineNumbers();
+  }
+}
+
+// Adicione esta função para criar os números de linha:
+function createLineNumbers() {
+  if (activeTabIndex < 0) return;
+
+  const editor = tabs[activeTabIndex].editor;
+
+  // Adicionar classe ao editor para ajustar o padding
+  editor.classList.add('editor-with-line-numbers');
+
+  // Criar o container de números de linha
+  let lineNumbers = document.createElement('div');
+  lineNumbers.className = 'line-numbers';
+  lineNumbers.id = 'line-numbers-' + activeTabIndex;
+
+  // Calcular o número de linhas
+  const text = editor.innerHTML;
+  const lines = text.split(/<br>|<div>|<p>/gi).length;
+
+  // Criar os números de linha
+  for (let i = 1; i <= Math.max(lines, 1); i++) {
+    const lineNumber = document.createElement('div');
+    lineNumber.className = 'line-number';
+    lineNumber.textContent = i;
+    lineNumbers.appendChild(lineNumber);
+  }
+
+  // Inserir o container de números de linha antes do editor
+  editor.parentNode.insertBefore(lineNumbers, editor);
+
+  // Sincronizar a rolagem do editor com os números de linha
+  editor.addEventListener('scroll', syncLineNumbersScroll);
+}
+
+// Adicione esta função para remover os números de linha:
+function removeLineNumbers() {
+  if (activeTabIndex < 0) return;
+
+  const editor = tabs[activeTabIndex].editor;
+
+  // Remover a classe do editor
+  editor.classList.remove('editor-with-line-numbers');
+
+  // Remover o container de números de linha
+  const lineNumbers = document.getElementById('line-numbers-' + activeTabIndex);
+  if (lineNumbers) {
+    lineNumbers.remove();
+  }
+
+  // Remover o evento de rolagem
+  editor.removeEventListener('scroll', syncLineNumbersScroll);
+}
+
+// Adicione esta função para sincronizar a rolagem dos números de linha com o editor:
+function syncLineNumbersScroll() {
+  if (activeTabIndex < 0) return;
+
+  const editor = tabs[activeTabIndex].editor;
+  const lineNumbers = document.getElementById('line-numbers-' + activeTabIndex);
+
+  if (lineNumbers) {
+    lineNumbers.scrollTop = editor.scrollTop;
+  }
+}
+
+// Adicione esta função para atualizar os números de linha quando o conteúdo do editor mudar:
+function updateLineNumbers() {
+  if (!showLineNumbers || activeTabIndex < 0) return;
+
+  const editor = tabs[activeTabIndex].editor;
+  const lineNumbers = document.getElementById('line-numbers-' + activeTabIndex);
+
+  if (lineNumbers) {
+    // Remove existing line numbers
+    while (lineNumbers.firstChild) {
+      lineNumbers.removeChild(lineNumbers.firstChild);
+    }
+
+    // Calculate the number of lines
+    const text = editor.innerHTML;
+    const lines = text.split(/<br>|<div>|<p>/gi).length;
+
+    // Create new line numbers
+    for (let i = 1; i <= Math.max(lines, 1); i++) {
+      const lineNumber = document.createElement('div');
+      lineNumber.className = 'line-number';
+      lineNumber.textContent = i;
+      lineNumbers.appendChild(lineNumber);
+    }
+  }
+}
+
+   // Chamar a função para adicionar ícones quando o documento é carregado
+updateFormatPopupIcons();
+  });
+
+  </script>
+</body>
+</html>
