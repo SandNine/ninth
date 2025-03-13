@@ -1,0 +1,161 @@
+// Add these functions before createNewTab()
+
+function handleTextSelection(e) {
+  const selection = window.getSelection();
+
+  if (selection.rangeCount > 0 && !selection.isCollapsed) {
+    currentSelectionRange = selection.getRangeAt(0);
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+
+    formatPopup.style.display = 'block';
+    formatPopup.style.left = `${Math.min(rect.left + window.scrollX, window.innerWidth - formatPopup.offsetWidth - 20)}px`;
+
+    const popupHeight = formatPopup.offsetHeight;
+    const spaceBelow = window.innerHeight - (rect.bottom + window.scrollY);
+    const threshold = 150;
+
+    if (spaceBelow < popupHeight + threshold) {
+      formatPopup.style.top = `${rect.top + window.scrollY - popupHeight - 10}px`;
+    } else {
+      formatPopup.style.top = `${rect.bottom + window.scrollY + 10}px`;
+    }
+
+    let startNode = range.startContainer;
+    let parentSpan = null;
+
+    while (startNode && startNode !== tabs[activeTabIndex].editor) {
+      if (startNode.nodeType === 1 && startNode.tagName === 'SPAN' && startNode.hasAttribute('data-id')) {
+        parentSpan = startNode;
+        break;
+      }
+      startNode = startNode.parentNode;
+    }
+
+    idInput.value = parentSpan ? parentSpan.getAttribute('data-id') : activeID;
+  } else {
+    if (e && e.type === 'mouseup' &&
+        !formatPopup.contains(e.target) &&
+        e.target !== colorPicker) {
+      formatPopup.style.display = 'none';
+    }
+  }
+}
+
+function handleTextClick(e) {
+  const target = e.target;
+  const selection = window.getSelection();
+  
+  if (selection.isCollapsed &&
+      !formatPopup.contains(e.target) &&
+      e.target !== colorPicker) {
+    formatPopup.style.display = 'none';
+  }
+
+  if (target.tagName === 'SPAN' && target.hasAttribute('data-id')) {
+    const clickedId = parseInt(target.getAttribute('data-id'), 10);
+    activeID = clickedId;
+    updateIDDisplay();
+    updateIDHighlighting();
+  } else if (target === e.currentTarget && selection.isCollapsed) {
+    activeID = 0;
+    updateIDDisplay();
+    updateIDHighlighting();
+  }
+}
+
+function updateTabContent() {
+  if (activeTabIndex >= 0) {
+    tabs[activeTabIndex].content = tabs[activeTabIndex].editor.innerHTML;
+  }
+}
+
+function finishTabRename(tabIndex, inputElement, textElement) {
+  const newTitle = inputElement.value.trim() || documentNames[0];
+  textElement.textContent = newTitle;
+  tabs[tabIndex].title = newTitle;
+  textElement.style.display = 'inline';
+  inputElement.style.display = 'none';
+}
+
+function updateIDDisplay() {
+  currentIdDisplay.textContent = `ID: ${activeID}`;
+}
+
+function updateIDHighlighting() {
+  if (activeTabIndex < 0) return;
+
+  const editor = tabs[activeTabIndex].editor;
+  const allSpans = editor.querySelectorAll('span[data-id]');
+
+  allSpans.forEach(span => {
+    span.classList.remove('faded', 'normal');
+    const spanId = parseInt(span.getAttribute('data-id'), 10);
+
+    if (spanId === 0 || spanId === activeID) {
+      span.classList.add('normal');
+    } else {
+      span.classList.add('faded');
+    }
+  });
+}
+
+function trackCursorPosition() {
+  setTimeout(() => {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      const preCaretRange = range.cloneRange();
+
+      if (activeTabIndex >= 0 && tabs[activeTabIndex].editor) {
+        preCaretRange.selectNodeContents(tabs[activeTabIndex].editor);
+        preCaretRange.setEnd(range.endContainer, range.endOffset);
+        const text = preCaretRange.toString();
+
+        const lines = text.split('\n');
+        const line = lines.length;
+        const col = lines[lines.length - 1].length + 1;
+
+        cursorPosition.textContent = `Ln: ${line}, Col: ${col}`;
+      }
+    }
+  }, 0);
+}
+
+function checkCursorInID() {
+  if (activeTabIndex < 0) return;
+
+  const selection = window.getSelection();
+  if (selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    let node = range.startContainer;
+    let parentWithID = null;
+
+    if (node.nodeType === 3) {
+      node = node.parentNode;
+    }
+
+    while (node && node !== tabs[activeTabIndex].editor) {
+      if (node.nodeType === 1 && node.tagName === 'SPAN' && node.hasAttribute('data-id')) {
+        parentWithID = node;
+        break;
+      }
+      node = node.parentNode;
+    }
+
+    if (parentWithID) {
+      const newID = parseInt(parentWithID.getAttribute('data-id'), 10);
+      if (newID !== activeID) {
+        activeID = newID;
+        updateIDDisplay();
+        updateIDHighlighting();
+      }
+    } else if (!formatPopup.contains(document.activeElement)) {
+      if (activeID !== 0) {
+        activeID = 0;
+        updateIDDisplay();
+        updateIDHighlighting();
+      }
+    }
+  }
+}
