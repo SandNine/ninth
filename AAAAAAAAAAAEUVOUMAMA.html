@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bloco de Notas Avançado</title>
+  <style>
+    :root {
+      --bg-color: #1e1e2e;
+      --header-bg: #181825;
+      --tab-bg: #313244;
+      --tab-active: #1e1e2e;
+      --text-color: #cdd6f4;
+      --accent-color: #89b4fa;
+      --border-color: #45475a;
+      --popup-bg: #313244;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Arial, sans-serif;
+    }
+    
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .header {
+      background-color: var(--header-bg);
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .app-title {
+      font-size: 14px;
+      margin-right: 20px;
+      color: var(--accent-color);
+    }
+    
+    .tabs-container {
+      display: flex;
+      flex-grow: 1;
+      overflow-x: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--accent-color) var(--header-bg);
+    }
+    
+    .tabs-container::-webkit-scrollbar {
+      height: 4px;
+    }
+    
+    .tabs-container::-webkit-scrollbar-thumb {
+      background-color: var(--accent-color);
+      border-radius: 4px;
+    }
+    
+    .tab {
+      padding: 8px 16px;
+      background-color: var(--tab-bg);
+      margin-right: 4px;
+      border-radius: 4px 4px 0 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+    
+    .tab.active {
+      background-color: var(--tab-active);
+      border-bottom: 2px solid var(--accent-color);
+    }
+    
+    .tab-title {
+      margin-right: 8px;
+    }
+    
+    .tab-title-editable {
+      outline: none;
+      border: none;
+      background: transparent;
+      color: inherit;
+      font-size: inherit;
+      padding: 0;
+      min-width: 80px;
+    }
+    
+    .tab-title-editable:focus {
+      border-bottom: 1px dashed var(--accent-color);
+    }
+    
+    .close-tab {
+      width: 16px;
+      height: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      opacity: 0.6;
+      transition: all 0.2s;
+    }
+    
+    .close-tab:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+      opacity: 1;
+    }
+    
+    .new-tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-color);
+      font-size: 20px;
+      cursor: pointer;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      margin-left: 8px;
+    }
+    
+    .new-tab-btn:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .editor-container {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .editor {
+      flex-grow: 1;
+      padding: 16px;
+      background-color: var(--bg-color);
+      outline: none;
+      font-size: 16px;
+      line-height: 1.6;
+      caret-color: var(--accent-color);
+      display: none;
+      overflow-y: auto;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+    
+    .editor.active {
+      display: block;
+    }
+    
+    .editor:focus {
+      border: none;
+      outline: none;
+    }
+    
+    .editor::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .editor::-webkit-scrollbar-thumb {
+      background-color: var(--border-color);
+      border-radius: 4px;
+    }
+    
+    .format-popup {
+      position: absolute;
+      background-color: var(--popup-bg);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      padding: 10px;
+      z-index: 10;
+      display: none;
+      animation: fadeIn 0.2s ease;
+      border: 1px solid var(--border-color);
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .format-section {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .format-section:last-child {
+      margin-bottom: 0;
+    }
+    
+    .format-label {
+      font-size: 12px;
+      margin-right: 10px;
+      min-width: 60px;
+    }
+    
+    .format-buttons {
+      display: flex;
+      gap: 5px;
+    }
+    
+    .format-btn {
+      background: none;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      color: var(--text-color);
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .format-btn:hover, .format-btn.active {
+      background-color: var(--accent-color);
+      color: var(--bg-color);
+    }
+    
+    .format-select {
+      background-color: var(--tab-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+    
+    .id-input {
+      background-color: var(--tab-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 4px 8px;
+      width: 80px;
+    }
+    
+    .status-bar {
+      background-color: var(--header-bg);
+      padding: 4px 16px;
+      font-size: 12px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .status-left, .status-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    
+    .status-btn {
+      background: none;
+      border: none;
+      color: var(--text-color);
+      cursor: pointer;
+      padding: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 3px;
+    }
+    
+    .status-btn:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .faded, .normal {
+      transition: opacity 0.3s ease;
+    }
+    
+    .faded {
+      opacity: 0.5 !important;
+    }
+    
+    .normal {
+      opacity: 1 !important;
+    }
+    
+    [contenteditable=true]:empty:before {
+      content: attr(placeholder);
+      color: rgba(205, 214, 244, 0.5);
+      pointer-events: none;
+    }
+    
+    .editor-with-line-numbers {
+      padding-left: 48px !important;
+    }
+    
+    .line-numbers {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 40px;
+      height: 100%;
+      padding: 16px 0;
+      background-color: var(--header-bg);
+      color: var(--border-color);
+      font-size: 12px;
+      text-align: right;
+      border-right: 1px solid var(--border-color);
+      user-select: none;
+      overflow: hidden;
+      z-index: 1;
+    }
+    
+    .line-number {
+      padding: 0 8px;
+      height: 24px;
+      line-height: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="app-title">Bloco de Notas</div>
+    <div class="tabs-container" id="tabs-container"></div>
+    <button class="new-tab-btn" id="new-tab-btn" title="Nova aba">+</button>
+  </div>
+  
+  <div class="editor-container" id="editor-container">
+    <div class="format-popup" id="format-popup">
+      <div class="format-section">
+        <div class="format-label">Estilo</div>
+        <div class="format-buttons">
+          <button class="format-btn" id="bold-btn" title="Negrito">B</button>
+          <button class="format-btn" id="italic-btn" title="Itálico">I</button>
+          <button class="format-btn" id="underline-btn" title="Sublinhado">U</button>
+        </div>
+      </div>
+      
+      <div class="format-section">
+        <div class="format-label">Fonte</div>
+        <select class="format-select" id="font-select">
+          <option value="'Segoe UI', Arial, sans-serif">Segoe UI</option>
+          <option value="'Arial', sans-serif">Arial</option>
+          <option value="'Times New Roman', serif">Times New Roman</option>
+          <option value="'Courier New', monospace">Courier New</option>
+          <option value="'Georgia', serif">Georgia</option>
+        </select>
+      </div>
+      
+      <div class="format-section">
+        <div class="format-label">Tamanho</div>
+        <select class="format-select" id="size-select">
+          <option value="12px">12px</option>
+          <option value="14px">14px</option>
+          <option value="16px" selected>16px</option>
+          <option value="18px">18px</option>
+          <option value="20px">20px</option>
+          <option value="24px">24px</option>
+        </select>
+      </div>
+      
+      <div class="format-section">
+        <div class="format-label">Cor</div>
+        <input type="color" class="format-btn" id="color-picker" value="#cdd6f4">
+      </div>
+      
+      <div class="format-section">
+        <div class="format-label">ID</div>
+        <input type="number" class="id-input" id="id-input" min="0" placeholder="ID">
+      </div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-left">
+      <div id="cursor-position">Ln: 1, Col: 1</div>
+      <div id="current-id">ID: 0</div>
+    </div>
+    <div class="status-right">
+      <button id="line-numbers-btn" class="status-btn" title="Mostrar/Ocultar Numeração de Linhas">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="9" y1="4" x2="20" y2="4"></line>
+          <line x1="9" y1="8" x2="20" y2="8"></line>
+          <line x1="9" y1="12" x2="20" y2="12"></line>
+          <line x1="9" y1="16" x2="20" y2="16"></line>
+          <line x1="9" y1="20" x2="20" y2="20"></line>
+          <line x1="5" y1="4" x2="5" y2="4"></line>
+          <line x1="5" y1="8" x2="5" y2="8"></line>
+          <line x1="5" y1="12" x2="5" y2="12"></line>
+          <line x1="5" y1="16" x2="5" y2="16"></line>
+          <line x1="5" y1="20" x2="5" y2="20"></line>
+        </svg>
+      </button>
+      <button id="text-inversion-btn" class="status-btn" title="Inversão Textual">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 17v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"></path>
+          <polyline points="16 6 12 2 8 6"></polyline>
+          <line x1="12" y1="2" x2="12" y2="16"></line>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <script>
+   document.addEventListener('DOMContentLoaded', () => {
+    let tabs = [];
+    let activeTabId = null;
+    let nextTabId = 1;
+    let showLineNumbers = false;
+    
+    // Elementos DOM principais
+    const tabsContainer = document.getElementById('tabs-container');
+    const editorContainer = document.getElementById('editor-container');
+    const newTabBtn = document.getElementById('new-tab-btn');
+    const formatPopup = document.getElementById('format-popup');
+        const cursorPosition = document.getElementById('cursor-position');
+    const currentIdDisplay = document.getElementById('current-id');
+    const lineNumbersBtn = document.getElementById('line-numbers-btn');
+    const textInversionBtn = document.getElementById('text-inversion-btn');
+    
+    // Elementos de formatação
+    const boldBtn = document.getElementById('bold-btn');
+    const italicBtn = document.getElementById('italic-btn');
+    const underlineBtn = document.getElementById('underline-btn');
+    const fontSelect = document.getElementById('font-select');
+    const sizeSelect = document.getElementById('size-select');
+    const colorPicker = document.getElementById('color-picker');
+    const idInput = document.getElementById('id-input');
+
+    // Função modificada para posicionar o popup perto do início do texto selecionado
+    function checkForSelectionAndShowPopup() {
+      // Limpar qualquer timeout existente
+      if (selectionTimeout) {
+        clearTimeout(selectionTimeout);
+      }
+      
+      const selection = window.getSelection();
+      if (selection.toString().trim().length > 0) {
+        // Há texto selecionado, iniciar contador antes de mostrar o popup
+        selectionTimeout = setTimeout(() => {
+          // Obter o retângulo da seleção, mas usar o ponto inicial para posicionamento
+          const range = selection.getRangeAt(0);
+          const rects = range.getClientRects();
+          
+          // Usar o primeiro retângulo (início da seleção) para posicionamento
+          const firstRect = rects[0];
+          if (!firstRect) return;
+          
+          formatPopup.style.display = 'block';
+          
+          // Posicionar o popup acima do início da seleção
+          let popupLeft = firstRect.left;
+          let popupTop = firstRect.top - formatPopup.offsetHeight - 10;
+          
+          // Verificar limites horizontais
+          if (popupLeft < 10) {
+            popupLeft = 10; // Margem esquerda
+          } else if (popupLeft + formatPopup.offsetWidth > window.innerWidth - 10) {
+            popupLeft = window.innerWidth - formatPopup.offsetWidth - 10; // Margem direita
+          }
+          
+          // Verificar limites verticais - se não couber acima, posicionar abaixo
+          if (popupTop < 10) {
+            popupTop = firstRect.bottom + 10;
+            
+            // Se também não couber abaixo, tentar à direita
+            if (popupTop + formatPopup.offsetHeight > window.innerHeight - 10) {
+              popupLeft = firstRect.right + 10;
+              popupTop = firstRect.top;
+              
+              // Se não couber à direita, tentar à esquerda
+              if (popupLeft + formatPopup.offsetWidth > window.innerWidth - 10) {
+                popupLeft = Math.max(10, firstRect.left - formatPopup.offsetWidth - 10);
+              }
+            }
+          }
+          
+          // Aplicar posição final - fixar no topo da viewport se estiver fora da tela
+          if (popupTop < 0) {
+            popupTop = 10;
+          }
+          
+          formatPopup.style.left = `${popupLeft}px`;
+          formatPopup.style.top = `${popupTop}px`;
+          
+          // Verificar ID atual se o texto selecionado já tem um ID
+          checkSelectedTextForId();
+          
+          // Atualizar estado dos botões de formatação
+          updateFormatButtonsState();
+        }, 350); // 350ms de espera
+      } else {
+        // Não há seleção, ocultar popup somente se não estiver usando o campo de ID
+        if (!formatPopup.contains(document.activeElement)) {
+          formatPopup.style.display = 'none';
+        }
+      }
+    }
+
+    // Função modificada para manter a seleção após aplicar ID
+    function applyIdToSelection(id) {
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0 && selection.toString().trim().length > 0) {
+        const range = selection.getRangeAt(0);
+        
+        try {
+          // Salvar referências para recriar a seleção depois
+          const selectedText = selection.toString();
+          
+          // Criar um elemento span com o ID
+          const span = document.createElement('span');
+          span.setAttribute('data-id', id);
+          
+          // Tentar envolver o conteúdo da seleção com o span
+          range.surroundContents(span);
+          
+          // Atualizar o conteúdo da aba
+          const editor = document.querySelector(`.editor[data-id="${activeTabId}"]`);
+          if (editor) {
+            const tab = tabs.find(t => t.id == activeTabId);
+            if (tab) {
+              tab.content = editor.innerHTML;
+            }
+          }
+          
+          // Reselecionar o mesmo conteúdo
+          selection.removeAllRanges();
+          const newRange = document.createRange();
+          newRange.selectNodeContents(span);
+          selection.addRange(newRange);
+          
+          // Atualizar opacidade baseada nas regras de ID
+          updateTextOpacity();
+          
+          // Manter o popup visível
+          const rects = span.getClientRects();
+          if (rects.length > 0) {
+            showFormatPopup(rects[0]);
+          }
+        } catch (e) {
+          // Para seleções que cruzam limites de nós, precisamos de uma abordagem diferente
+          console.error("Erro ao aplicar ID:", e);
+          
+          try {
+            // Extrair conteúdo HTML da seleção
+            const fragment = range.extractContents();
+            
+            // Criar um span com ID e inserir o conteúdo
+            const span = document.createElement('span');
+            span.setAttribute('data-id', id);
+            span.appendChild(fragment);
+            
+            // Inserir de volta no documento
+            range.insertNode(span);
+            
+            // Atualizar o conteúdo da aba
+            const editor = document.querySelector(`.editor[data-id="${activeTabId}"]`);
+            if (editor) {
+              const tab = tabs.find(t => t.id == activeTabId);
+              if (tab) {
+                tab.content = editor.innerHTML;
+              }
+            }
+            
+            // Reselecionar o conteúdo
+            selection.removeAllRanges();
+            const newRange = document.createRange();
+            newRange.selectNodeContents(span);
+            selection.addRange(newRange);
+            
+            // Atualizar opacidade
+            updateTextOpacity();
+            
+            // Manter o popup visível
+            const rects = span.getClientRects();
+            if (rects.length > 0) {
+              showFormatPopup(rects[0]);
+            }
+          } catch (e2) {
+            console.error("Falha na abordagem alternativa:", e2);
+            alert("Não foi possível aplicar o ID à seleção. Por favor, selecione um texto mais simples.");
+          }
+        }
+      }
+    }
+
+    // Função atualizada para mostrar o popup usando o início da seleção
+    function showFormatPopup(rect) {
+      // Posicionar popup
+      formatPopup.style.display = 'block';
+      
+      // Calcular posição junto ao início da seleção
+      let popupLeft = rect.left;
+      let popupTop = rect.top - formatPopup.offsetHeight - 10;
+      
+      // Verificar limites horizontais
+      if (popupLeft < 10) {
+        popupLeft = 10;
+      } else if (popupLeft + formatPopup.offsetWidth > window.innerWidth - 10) {
+        popupLeft = window.innerWidth - formatPopup.offsetWidth - 10;
+      }
+      
+      // Verificar limites verticais
+      if (popupTop < 10) {
+        popupTop = rect.bottom + 10;
+        
+        // Se também não couber abaixo, tentar à direita
+        if (popupTop + formatPopup.offsetHeight > window.innerHeight - 10) {
+          popupLeft = rect.right + 10;
+          popupTop = rect.top;
+          
+          // Se não couber à direita, tentar à esquerda
+          if (popupLeft + formatPopup.offsetWidth > window.innerWidth - 10) {
+            popupLeft = Math.max(10, rect.left - formatPopup.offsetWidth - 10);
+          }
+        }
+      }
+      
+      // Garantir que o popup fique visível mesmo que a seleção seja muito grande
+      if (popupTop < 0) {
+        popupTop = 10; // Fixar no topo da viewport se estiver fora da tela
+      }
+      
+      // Aplicar posição
+      formatPopup.style.left = `${popupLeft}px`;
+      formatPopup.style.top = `${popupTop}px`;
+      
+      // Atualizar estado dos botões de formatação
+      updateFormatButtonsState();
+    }
+
+    // Modificar o evento de tecla Enter no campo de ID para manter a seleção
+    idInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        applyIdToSelection(idInput.value);
+        e.preventDefault(); // Impedir que o Enter crie uma nova linha
+        // Manter o foco no campo de ID para permitir novas entradas
+        setTimeout(() => {
+          idInput.focus();
+        }, 0);
+      } else if (e.key === 'ArrowUp') {
+        idInput.value = parseInt(idInput.value || 0) + 1;
+        e.preventDefault(); // Impedir a rolagem da página
+      } else if (e.key === 'ArrowDown') {
+        idInput.value = Math.max(0, parseInt(idInput.value || 0) - 1);
+        e.preventDefault(); // Impedir a rolagem da página
+      }
+    });
+
+    // Initialize other event listeners and functionality
+    newTabBtn.addEventListener('click', () => createTab());
+    lineNumbersBtn.addEventListener('click', toggleLineNumbers);
+    textInversionBtn.addEventListener('click', applyTextInversion);
+    
+    // Create initial tab
+    createTab();
+  });
+  </script>
+</body>
+</html>
