@@ -1,0 +1,229 @@
+// Função aprimorada para criar números de linha
+function createLineNumbers(editor) {
+  // Verifica se o container de números de linha já existe
+  let lineNumbersDiv = editor.previousElementSibling;
+  if (!lineNumbersDiv || !lineNumbersDiv.classList.contains('line-numbers')) {
+    lineNumbersDiv = document.createElement('div');
+    lineNumbersDiv.className = 'line-numbers';
+    editor.parentNode.insertBefore(lineNumbersDiv, editor);
+  }
+  
+  // Limpa os números existentes
+  lineNumbersDiv.innerHTML = '';
+  
+  // Analisa o conteúdo do editor para determinar as linhas reais
+  const content = editor.innerHTML;
+  
+  // Extrai todos os elementos de nível superior no editor
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = content;
+  const topLevelElements = Array.from(tempDiv.childNodes);
+  
+  // Constrói um mapa de posições de linha
+  const linePositions = [];
+  let currentHeight = 0;
+  
+  // Adiciona uma linha para o caso de editor vazio ou início do documento
+  linePositions.push({
+    index: 1,
+    top: 0
+  });
+  
+  // Processa cada elemento de nível superior para calcular sua posição
+  topLevelElements.forEach((element, index) => {
+    // Para elementos DIV normais ou elementos com quebra de linha
+    if (element.nodeName === 'DIV') {
+      currentHeight += 24; // Altura padrão da linha
+      linePositions.push({
+        index: linePositions.length + 1,
+        top: currentHeight
+      });
+    } 
+    // Para elementos de texto que terminam com quebra de linha
+    else if (element.nodeType === 3 && element.textContent.includes('\n')) {
+      const lineBreaks = element.textContent.split('\n').length - 1;
+      for (let i = 0; i < lineBreaks; i++) {
+        currentHeight += 24;
+        linePositions.push({
+          index: linePositions.length + 1,
+          top: currentHeight
+        });
+      }
+    }
+    // Para elementos BR
+    else if (element.nodeName === 'BR') {
+      currentHeight += 24;
+      linePositions.push({
+        index: linePositions.length + 1,
+        top: currentHeight
+      });
+    }
+  });
+  
+  // Assegura pelo menos uma linha em casos de conteúdo vazio
+  if (linePositions.length === 0) {
+    linePositions.push({
+      index: 1,
+      top: 0
+    });
+  }
+  
+  // Cria os elementos visuais dos números de linha
+  const fragment = document.createDocumentFragment();
+  linePositions.forEach(line => {
+    const lineNumber = document.createElement('div');
+    lineNumber.className = 'line-number';
+    lineNumber.textContent = line.index;
+    lineNumber.style.position = 'absolute';
+    lineNumber.style.top = `${line.top}px`;
+    lineNumber.style.lineHeight = '24px'; // Mantém consistente com a altura da linha
+    fragment.appendChild(lineNumber);
+  });
+  
+  // Adiciona os números ao container
+  lineNumbersDiv.appendChild(fragment);
+  
+  // Define a altura total para corresponder ao editor
+  lineNumbersDiv.style.height = `${Math.max(currentHeight + 24, editor.scrollHeight)}px`;
+  
+  // Ajusta o scroll para corresponder à posição atual do editor
+  syncLineNumbersScroll({ target: editor });
+}
+
+// Função aprimorada para sincronizar scroll entre números de linha e editor
+function syncLineNumbersScroll(e) {
+  if (!showLineNumbers) return;
+  
+  const editor = e.target;
+  const lineNumbersDiv = editor.previousElementSibling;
+  
+  if (lineNumbersDiv && lineNumbersDiv.classList.contains('line-numbers')) {
+    // Em vez de usar transformação, ajustamos o scrollTop diretamente
+    // Isso evita problemas de renderização em alguns navegadores
+    lineNumbersDiv.scrollTop = editor.scrollTop;
+  }
+}
+
+// Função otimizada para monitorar mudanças no conteúdo do editor
+function monitorEditorContentChanges(editor) {
+  // Usa MutationObserver para detectar mudanças na estrutura do DOM
+  if (!editor._contentObserver) {
+    editor._contentObserver = new MutationObserver(mutations => {
+      // Verifica se as mutações afetam a estrutura das linhas
+      const needsLineUpdate = mutations.some(mutation => {
+        return mutation.type === 'childList' || 
+               (mutation.type === 'characterData' && 
+                mutation.target.textContent.includes('\n'));
+      });
+      
+      if (needsLineUpdate && showLineNumbers) {
+        // Usa requestAnimationFrame para melhor performance
+        requestAnimationFrame(() => {
+          createLineNumbers(editor);
+        });
+      }
+    });
+    
+    // Configura o observer para monitorar todas as mudanças relevantes
+    editor._contentObserver.observe(editor, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+  }
+}
+
+// Atualiza a função input handler do editor para usar o novo sistema
+function setupEditorEventListeners(editor) {
+  // Limpa quaisquer listeners antigos para evitar duplicação
+  editor.removeEventListener('input', optimizedEditorInputHandler);
+  editor.removeEventListener('scroll', syncLineNumbersScroll);
+  
+  // Adiciona os novos listeners otimizados
+  editor.addEventListener('input', optimizedEditorInputHandler);
+  editor.addEventListener('scroll', function(e) {
+    // Usa requestAnimationFrame para sincronizar com o ciclo de renderização
+    if (!this._scrollRAF) {
+      this._scrollRAF = requestAnimationFrame(() => {
+        syncLineNumbersScroll(e);
+        this._scrollRAF = null;
+      });
+    }
+  });
+  
+  // Configura o observer para mudanças de conteúdo
+  monitorEditorContentChanges(editor);
+}
+
+// Versão otimizada do handler de input
+function optimizedEditorInputHandler() {
+  updateTabContent();
+  
+  // Não precisamos chamar createLineNumbers aqui,
+  // pois o MutationObserver vai lidar com isso
+}
+
+// Atualização na função de criação de nova aba para usar os novos listeners
+function createNewTab() {
+  // Código existente para criar a aba
+  // ...
+  
+  // Configura os novos listeners para o editor
+  setupEditorEventListeners(editor);
+  
+  // Resto do código existente
+  // ...
+}
+
+// Função para verificar e corrigir desalinhamento entre linhas e números
+function validateLineNumbersAlignment(editor) {
+  if (!showLineNumbers) return;
+  
+  const content = editor.innerHTML;
+  const lineNumbersDiv = editor.previousElementSibling;
+  
+  if (!lineNumbersDiv || !lineNumbersDiv.classList.contains('line-numbers')) {
+    return;
+  }
+  
+  // Analisa o conteúdo para contar linhas reais
+  let lines = 0;
+  
+  // Conta <div> elementos (cada um é uma linha)
+  const divCount = (content.match(/<div[^>]*>/g) || []).length;
+  
+  // Conta <br> elementos que não estão dentro de divs
+  const brTagsOutsideDiv = content.split(/<div[^>]*>/).reduce((count, part, i) => {
+    if (i === 0) { // Antes da primeira div
+      return count + (part.match(/<br\s*\/?>/g) || []).length;
+    }
+    return count;
+  }, 0);
+  
+  // Conta quebras de linha literais em nós de texto
+  const textNodeLineBreaks = (content.match(/\n/g) || []).length;
+  
+  // Total de linhas estimado
+  lines = Math.max(1, divCount + brTagsOutsideDiv + textNodeLineBreaks);
+  
+  // Compara com números de linha atuais
+  const lineNumberCount = lineNumbersDiv.querySelectorAll('.line-number').length;
+  
+  // Se houver discrepância significativa, atualiza os números
+  if (Math.abs(lines - lineNumberCount) > 3) {
+    createLineNumbers(editor);
+  }
+}
+
+// Adiciona a validação no evento de scroll para capturar desalinhamentos
+function enhancedSyncLineNumbersScroll(e) {
+  syncLineNumbersScroll(e);
+  
+  // Valida alinhamento periodicamente durante o scroll
+  if (!e.target._validateTimer) {
+    e.target._validateTimer = setTimeout(() => {
+      validateLineNumbersAlignment(e.target);
+      e.target._validateTimer = null;
+    }, 500);
+  }
+}
